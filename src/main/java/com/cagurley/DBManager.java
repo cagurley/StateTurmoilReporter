@@ -1,21 +1,21 @@
 package com.cagurley;
 
-import java.io.File;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 
 public class DBManager {
     private String dbFileName;
     private String dbDriverName;
     private String dbFullName;
+    private Connection dbConn;
 
     public DBManager(String dbFileName, String dbDriverName) {
         this.dbFileName = dbFileName;
         this.dbDriverName = dbDriverName;
-        this.dbFullName = (this.dbDriverName + ":" + this.getResourceString());
+        this.dbFullName = (String.join(":", this.dbDriverName, this.getResourceString()));
+        this.dbConn = null;
     }
+
+    public boolean isConnected() { return this.dbConn != null; }
 
     private String getResourceString() {
         return (this.getClass().getClassLoader().getResource(".")
@@ -23,26 +23,35 @@ public class DBManager {
                 + this.dbFileName);
     }
 
-    public void connect() {
-        Connection conn = null;
-        try {
-            // db parameters
-            // String url = "jdbc:sqlite:C:/sqlite/db/chinook.db";
-            // create a connection to the database
-            conn = DriverManager.getConnection(dbFullName);
-
+    public void connect() throws SQLException {
+        this.dbConn = DriverManager.getConnection(dbFullName);
+        if (this.dbConn != null) {
             System.out.println("Connection has been established.");
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.close();
-                }
-            } catch (SQLException ex) {
-                ex.printStackTrace();
-            }
+        } else {
+            System.out.println("Connection failed.");
         }
+    }
+
+    public void closeConnection() throws SQLException {
+        if (this.dbConn != null) {
+            this.dbConn.close();
+            this.dbConn = null;
+        }
+    }
+
+    public void createTable(DataSet dataSet) throws SQLException {
+        if (dataSet.hasParser()) {
+            String createString = (
+                    "CREATE TABLE IF NOT EXISTS " + dataSet.getTableName()
+                    + " ("
+                    + (String.join(" TEXT, ", dataSet.getHeaderMap().keySet()) + " TEXT")
+                    + ");"
+            );
+            this.dbConn.createStatement().execute(createString);
+        }
+    }
+
+    public ResultSet getTables(String tableNamePattern) throws SQLException {
+        return this.dbConn.getMetaData().getTables(null, null, tableNamePattern, null);
     }
 }
