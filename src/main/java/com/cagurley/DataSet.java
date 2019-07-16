@@ -7,8 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.Set;
 
 public class DataSet {
     private String fileName;
@@ -18,21 +17,25 @@ public class DataSet {
     private CSVParser parser;
 
     public DataSet(String fileName, String tableName) {
-        this.fileName = fileName;
-        String[] splitName = fileName.split("\\.(?=[^.]+$)");
-        if (splitName.length == 2) {
-            this.fileExt = splitName[1].toLowerCase();
+        if (tableName.matches("^\\w+$")) {
+            this.fileName = fileName;
+            String[] splitName = fileName.split("\\.(?=[^.]+$)");
+            if (splitName.length == 2) {
+                this.fileExt = splitName[1].toLowerCase();
+            }
+            this.file = this.getFileFromResources();
+            this.tableName = tableName;
+            this.parser = null;
+        } else {
+            throw new IllegalArgumentException("Table name is invalid, should be a string of word characters.");
         }
-        this.file = this.getFileFromResources();
-        this.tableName = tableName;
-        this.parser = null;
     }
 
     public boolean hasParser() { return this.parser != null; }
 
-    public int getHeaderLength() {
-        return this.parser.getHeaderMap().size();
-    }
+    public int getHeaderLength() { return this.parser.getHeaderMap().size(); }
+
+    public Set<String> getHeaderKeySet() { return this.parser.getHeaderMap().keySet(); }
 
     public String getTableName() { return this.tableName; }
 
@@ -62,9 +65,7 @@ public class DataSet {
         return this.file;
     }
 
-    public Iterator getIterator() {
-        return this.parser.iterator();
+    public CSVParser getParser() {
+        return this.parser;
     }
-
-    public Map<String, Integer> getHeaderMap() { return this.parser.getHeaderMap(); }
 }

@@ -1,9 +1,7 @@
 package com.cagurley;
 
 import java.io.IOException;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Iterator;
 
 public class App 
 {
@@ -18,20 +16,15 @@ public class App
         try {
             manager.connect();
             if (manager.isConnected()) {
-                ResultSet results = manager.getTables("%");
-                while (results.next()) {
-                    System.out.println(results.getString("TABLE_NAME"));
-                }
-                DataSet setOne = new DataSet("globalterrorismdb_0718dist.csv", "GLOBAL_TERRORISM");
-                setOne.parse();
-                manager.createTable(setOne);
-//                Iterator iterator = setOne.getIterator();
-//                while (iterator.hasNext()) {
-//
-//                }
-//                System.out.println(parser.iterator().next().toString());
+                DataSet dataSet = new DataSet("globalterrorismdb_0718dist.csv", "GLOBAL_TERRORISM");
+                dataSet.parse();
+                manager.initDSTable(dataSet);
+                dataSet.closeParser();
+                dataSet = new DataSet("DPI2012.csv", "POLITICAL_INSTITUTIONS");
+                dataSet.parse();
+                manager.initDSTable(dataSet);
+                dataSet.closeParser();
                 manager.closeConnection();
-                setOne.closeParser();
             }
         } catch (SQLException e) {
             e.printStackTrace();
