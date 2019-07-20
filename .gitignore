@@ -25,5 +25,6 @@ hs_err_pid*
 # IntelliJ Idea files
 .idea/
 
-# DB File
+# DB files
 *.db
+*.db-journal

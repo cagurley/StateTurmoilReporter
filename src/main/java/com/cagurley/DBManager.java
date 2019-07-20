@@ -4,7 +4,6 @@ import org.apache.commons.csv.CSVRecord;
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Set;
 
 public class DBManager {
     private String dbFileName;
@@ -19,6 +18,15 @@ public class DBManager {
         this.dbFullName = (String.join(":", this.dbDriverName, this.getResourceString()));
         this.dbConn = null;
         this.dbStatement = null;
+    }
+
+    /* Database File Methods*/
+    public boolean databaseExists() {
+        if (this.getClass().getClassLoader().getResource(this.dbFileName) != null) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private String getResourceString() {
@@ -55,12 +63,17 @@ public class DBManager {
         return this.dbConn.getMetaData().getTables(null, null, tableNamePattern, null);
     }
 
+    public SQLWarning getWarnings() throws SQLException {
+        return this.dbConn.getWarnings();
+    }
+
     /* Statement Methods */
     public void addBatch(String statementString) throws SQLException {
         this.dbStatement.addBatch(statementString);
     }
 
-    public void clearStatement() {
+    public void closeStatement() throws SQLException {
+        this.dbStatement.close();
         this.dbStatement = null;
     }
 
@@ -71,7 +84,7 @@ public class DBManager {
     private void executeStatement(String statementString) throws SQLException {
         this.dbStatement.execute(statementString);
         this.dbConn.commit();
-        this.clearStatement();
+        this.closeStatement();
     }
 
     private void executeBatch() throws SQLException {
@@ -154,8 +167,25 @@ public class DBManager {
                 }
             }
             this.executeBatch();
-            this.clearStatement();
+            this.closeStatement();
             System.out.println("Inserted a total of " + rowsInserted + " rows into " + dataSet.getTableName() + ".");
+        }
+    }
+
+    /* Table Update Methods */
+    public void updateColumnValue(String tableName, String columnName, String searchPattern, String replacementPattern) throws SQLException {
+        if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
+            throw new IllegalArgumentException("Enter valid table and column names (word characters only).");
+        } else if (!this.getColumns(tableName, columnName).next()) {
+            throw new IllegalArgumentException("Table or column name does not exist.");
+        } else {
+            String sql = "UPDATE " + tableName + " SET " + columnName + " = ? WHERE " + columnName + " LIKE ?";
+            PreparedStatement ps = this.dbConn.prepareStatement(sql);
+            ps.setString(1, replacementPattern);
+            ps.setString(2, searchPattern);
+            ps.executeUpdate();
+            this.dbConn.commit();
+            System.out.println("Updated " + tableName + " values like '" + searchPattern + "' to value '" + replacementPattern + "'.");
         }
     }
 }
