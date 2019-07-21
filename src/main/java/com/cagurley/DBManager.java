@@ -2,6 +2,7 @@ package com.cagurley;
 
 import org.apache.commons.csv.CSVRecord;
 
+import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 
@@ -40,9 +41,8 @@ public class DBManager {
         this.dbConn = DriverManager.getConnection(dbFullName);
         if (this.dbConn != null) {
             this.dbConn.setAutoCommit(false);
-            System.out.println("Connection has been established.");
         } else {
-            System.out.println("Connection failed.");
+            throw new SQLException("Connection failed.");
         }
     }
 
@@ -157,7 +157,23 @@ public class DBManager {
         }
     }
 
-    /* Table Update Methods */
+    /* Database Methods */
+    public void executeQuery(String queryString, String renderMode) throws SQLException, IOException {
+        QueryRSManager qRSM = new QueryRSManager();
+        Statement stmt = this.dbConn.createStatement();
+        switch (renderMode) {
+            case "CSV":
+                qRSM.renderCSV(stmt.executeQuery(queryString), "out");
+                break;
+            case "JSON":
+                break;
+            case "SOUT":
+                qRSM.renderSOUT(stmt.executeQuery(queryString));
+                break;
+        }
+        stmt.close();
+    }
+
 //    public void updateColumnType(String tableName, String columnName, String newType) throws SQLException {
 //        if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
 //            throw new IllegalArgumentException("Enter valid table and column names (word characters only).");
@@ -190,7 +206,6 @@ public class DBManager {
             ps.setString(2, searchPattern);
             ps.executeUpdate();
             this.dbConn.commit();
-//            this.closeStatementResults(ps);
             ps.close();
             System.out.println("Updated " + tableName + " values like '" + searchPattern + "' to value '" + replacementPattern + "'.");
         }

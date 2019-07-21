@@ -49,13 +49,22 @@ public class InputManager {
 
     private String getInput(String key) { return inputs.get(key); }
 
-    private String popInput(String key) { return inputs.remove(key); }
+    public String popInput(String key) { return inputs.remove(key); }
 
     /* Prompting Methods */
     public void storePrompt(String prompt, String key) {
         if (this.scanner != null) {
             System.out.println(prompt);
             this.addInput(key, this.scanner.nextLine());
+        } else {
+            throw new NullPointerException("Prompt failed: scanner not initialized");
+        }
+    }
+
+    public void waitForInput() {
+        if (this.scanner != null) {
+            System.out.println("Press ENTER to continue.");
+            this.scanner.nextLine();
         } else {
             throw new NullPointerException("Prompt failed: scanner not initialized");
         }
