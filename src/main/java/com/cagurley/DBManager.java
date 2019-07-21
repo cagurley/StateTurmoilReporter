@@ -10,14 +10,12 @@ public class DBManager {
     private String dbDriverName;
     private String dbFullName;
     private Connection dbConn;
-    private Statement dbStatement;
 
     public DBManager(String dbFileName, String dbDriverName) {
         this.dbFileName = dbFileName;
         this.dbDriverName = dbDriverName;
         this.dbFullName = (String.join(":", this.dbDriverName, this.getResourceString()));
         this.dbConn = null;
-        this.dbStatement = null;
     }
 
     /* Database File Methods*/
@@ -40,8 +38,8 @@ public class DBManager {
 
     public void connect() throws SQLException {
         this.dbConn = DriverManager.getConnection(dbFullName);
-        this.dbConn.setAutoCommit(false);
         if (this.dbConn != null) {
+            this.dbConn.setAutoCommit(false);
             System.out.println("Connection has been established.");
         } else {
             System.out.println("Connection failed.");
@@ -49,12 +47,18 @@ public class DBManager {
     }
 
     public void closeConnection() throws SQLException {
-        if (this.dbConn != null) {
+        if (this.isConnected()) {
             this.dbConn.close();
             this.dbConn = null;
         }
     }
 
+    public void refreshConnection() throws SQLException {
+        this.closeConnection();
+        this.connect();
+    }
+
+    /*v IMPORTANT: Must call this.refreshConnection() after completion of either of the metadata methods below to prevent database lockup v*/
     public ResultSet getColumns(String tableNamePattern, String columnNamePattern) throws SQLException {
         return this.dbConn.getMetaData().getColumns(null, null, tableNamePattern, columnNamePattern);
     }
@@ -62,35 +66,10 @@ public class DBManager {
     public ResultSet getTables(String tableNamePattern) throws SQLException {
         return this.dbConn.getMetaData().getTables(null, null, tableNamePattern, null);
     }
+    /*^ IMPORTANT: Must call this.refreshConnection() after completion of either of the metadata methods below to prevent database lockup ^*/
 
     public SQLWarning getWarnings() throws SQLException {
         return this.dbConn.getWarnings();
-    }
-
-    /* Statement Methods */
-    public void addBatch(String statementString) throws SQLException {
-        this.dbStatement.addBatch(statementString);
-    }
-
-    public void closeStatement() throws SQLException {
-        this.dbStatement.close();
-        this.dbStatement = null;
-    }
-
-    private void createStatement() throws SQLException {
-        this.dbStatement = this.dbConn.createStatement();
-    }
-
-    private void executeStatement(String statementString) throws SQLException {
-        this.dbStatement.execute(statementString);
-        this.dbConn.commit();
-        this.closeStatement();
-    }
-
-    private void executeBatch() throws SQLException {
-        this.dbStatement.executeBatch();
-        this.dbConn.commit();
-        this.dbStatement.clearBatch();
     }
 
     /* DataSet Table Methods */
@@ -109,8 +88,9 @@ public class DBManager {
                     + String.join("] TEXT, [", columns)
                     + "] TEXT);"
             );
-            this.createStatement();
-            this.executeStatement(createString);
+            Statement stmt = this.dbConn.createStatement();
+            stmt.executeUpdate(createString);
+            this.dbConn.commit();
             System.out.println("Created table " + dataSet.getTableName() + " successfully.");
         }
     }
@@ -118,8 +98,9 @@ public class DBManager {
     private void dropDSTable(DataSet dataSet) throws SQLException {
         System.out.println("Dropping table...");
         String dropString = "DROP TABLE IF EXISTS " + dataSet.getTableName() + ";";
-        this.createStatement();
-        this.executeStatement(dropString);
+        Statement stmt = this.dbConn.createStatement();
+        stmt.executeUpdate(dropString);
+        this.dbConn.commit();
         System.out.println("Dropped table " + dataSet.getTableName() + " successfully.");
     }
 
@@ -139,10 +120,11 @@ public class DBManager {
         if (table.next()
                 && columnNum == dataSet.getHeaderLength()
                 && dataSet.getParser() != null) {
+            this.refreshConnection();
             System.out.println("Inserting rows...");
             int insertValueCount = 0;
             int rowsInserted = 0;
-            this.createStatement();
+            Statement stmt = this.dbConn.createStatement();
             for (CSVRecord record : dataSet.getParser()) {
                 String transactionString = "INSERT INTO " + dataSet.getTableName() + " VALUES";
                 transactionString += "(";
@@ -157,34 +139,59 @@ public class DBManager {
                 }
                 String valueString = String.join(",", values);
                 transactionString += valueString + ");";
-                this.addBatch(transactionString);
+                stmt.addBatch(transactionString);
                 insertValueCount += 1;
                 rowsInserted += 1;
                 if (insertValueCount == 1000) {
-                    this.executeBatch();
+                    stmt.executeBatch();
+                    stmt.clearBatch();
+                    this.dbConn.commit();
                     System.out.println("Inserted " + rowsInserted + " rows into " + dataSet.getTableName() + ".");
                     insertValueCount = 0;
                 }
             }
-            this.executeBatch();
-            this.closeStatement();
+            stmt.executeBatch();
+            stmt.clearBatch();
+            this.dbConn.commit();
             System.out.println("Inserted a total of " + rowsInserted + " rows into " + dataSet.getTableName() + ".");
         }
     }
 
     /* Table Update Methods */
+//    public void updateColumnType(String tableName, String columnName, String newType) throws SQLException {
+//        if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
+//            throw new IllegalArgumentException("Enter valid table and column names (word characters only).");
+//        } else if (!this.getColumns(tableName, columnName).next()) {
+//            throw new IllegalArgumentException("Table or column name does not exist.");
+//        } else if (!newType.matches("^(INT)|(REAL)|(TEXT)$")){
+//            throw new IllegalArgumentException("New type must be 'INT', 'REAL', or 'TEXT'.");
+//        } else {
+//            this.createStatement();
+//            ResultSet currentValues = this.executeQuery("SELECT DISTINCT " + columnName + "\nFROM " + tableName);
+//            while (currentValues.next()) {
+//                if (newType.equals("INT")) {
+//                    this.updateColumnValue();
+//                }
+//            }
+//        }
+//    }
+
     public void updateColumnValue(String tableName, String columnName, String searchPattern, String replacementPattern) throws SQLException {
         if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
             throw new IllegalArgumentException("Enter valid table and column names (word characters only).");
         } else if (!this.getColumns(tableName, columnName).next()) {
+            this.refreshConnection();
             throw new IllegalArgumentException("Table or column name does not exist.");
         } else {
+            this.refreshConnection();
             String sql = "UPDATE " + tableName + " SET " + columnName + " = ? WHERE " + columnName + " LIKE ?";
             PreparedStatement ps = this.dbConn.prepareStatement(sql);
             ps.setString(1, replacementPattern);
             ps.setString(2, searchPattern);
             ps.executeUpdate();
             this.dbConn.commit();
+//            this.closeStatementResults(ps);
+            ps.close();
             System.out.println("Updated " + tableName + " values like '" + searchPattern + "' to value '" + replacementPattern + "'.");
         }
     }

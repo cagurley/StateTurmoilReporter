@@ -2,7 +2,6 @@ package com.cagurley;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.sql.SQLWarning;
 
 public class App 
 {
@@ -31,11 +30,6 @@ public class App
                     dataSet.parse();
                     dbManager.initDSTable(dataSet);
                     dataSet.closeParser();
-//                    SQLWarning warn = dbManager.getWarnings();
-//                    while (warn != null) {
-//                        System.out.println(warn);
-//                        warn.getNextWarning();
-//                    }
                     dataSet = new DataSet("DPI2012.csv", "POLITICAL_INSTITUTIONS");
                     dataSet.parse();
                     dbManager.initDSTable(dataSet);
@@ -43,17 +37,17 @@ public class App
 
                     dbManager.updateColumnValue("POLITICAL_INSTITUTIONS", "countryname", "USA", "United States");
                 }
-//                SQLWarning warn = dbManager.getWarnings();
-//                while (warn != null) {
-//                    System.out.println(warn);
-//                    warn.getNextWarning();
-//                }
-                dbManager.closeConnection();
             }
         } catch (SQLException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            try {
+                dbManager.closeConnection();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

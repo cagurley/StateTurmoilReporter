@@ -28,3 +28,6 @@ hs_err_pid*
 # DB files
 *.db
 *.db-journal
+
+# Maven `target` directory
+target/
