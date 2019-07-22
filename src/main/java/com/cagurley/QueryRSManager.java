@@ -43,6 +43,7 @@ public class QueryRSManager {
         printer.printRecord(this.getHeaderData(queryRS));
         printer.printRecords(queryRS);
         printer.close();
+        queryRS.getStatement().close();
         System.out.println("Results rendered to " + outFile.toString() + ".");
     }
 
@@ -65,6 +66,7 @@ public class QueryRSManager {
             appender.write(rowObj.toJSONString());
         }
         appender.close();
+        queryRS.getStatement().close();
         System.out.println("Results rendered to " + outFile.toString() + ".");
     }
 
@@ -79,6 +81,7 @@ public class QueryRSManager {
             }
             System.out.println("| " + String.join(" | ", rowData) + " |");
         }
+        queryRS.getStatement().close();
         System.out.println("====================");
     }
 }

@@ -1,9 +1,11 @@
 package com.cagurley;
 
 import java.io.IOException;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class App 
 {
@@ -127,6 +129,13 @@ public class App
                     dbManager.createIndex("GLOBAL_TERRORISM", "country_txt");
                     dbManager.createIndex("POLITICAL_INSTITUTIONS", "countryname");
                     dbManager.createIndex("CORRUPTION_PERCEPTIONS_INDEX", "country");
+                    // Creating derived table and index
+                    ArrayList<String> dCols = new ArrayList<>(Arrays.asList("country"));
+                    ArrayList<String> dQueries = new ArrayList<>(Arrays.asList("SELECT DISTINCT country_txt FROM GLOBAL_TERRORISM",
+                            "SELECT DISTINCT countryname FROM POLITICAL_INSTITUTIONS WHERE countryname NOT IN (SELECT country FROM COUNTRIES)",
+                            "SELECT DISTINCT country FROM CORRUPTION_PERCEPTIONS_INDEX WHERE country NOT IN (SELECT country FROM COUNTRIES)"));
+                    dbManager.initDerivedTable("COUNTRIES", dCols, dQueries);
+                    dbManager.createIndex("COUNTRIES", "country");
 
                     System.out.println("Database initiated.");
                 }
@@ -134,7 +143,8 @@ public class App
                 System.out.println("\nBooting to menu in three seconds.");
                 Thread.sleep(3000);
                 clearScreen();
-                dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
+                QueryRSManager diag = new QueryRSManager();
+                diag.renderCSV(dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
                         + "\nFROM ("
                         + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
                         + "\n  FROM GLOBAL_TERRORISM"
@@ -147,7 +157,7 @@ public class App
                         + "\n)"
                         + "\nGROUP BY value"
                         + "\nHAVING COUNT(value) < 3"
-                        + "\nORDER BY 1, 2"), "CSV", "country_values");
+                        + "\nORDER BY 1, 2")), "country_values");
                 System.out.println("Welcome to the State Turmoil Reporter,"
                         + " a queryable database of aggregate terrorism and political institution data.\n");
                 while (true) {
@@ -283,9 +293,134 @@ public class App
                                 break;
                             case '3':
                                 clearScreen();
-                                iManager.waitForInput();
+                                /* Sub Menu */
+                                while (true) {
+                                    iManager.storePrompt(("Which predefined query would you like to execute? Press the key corresponding to a selection below.\n"
+                                            + "\n1. Countries with political institutions and corruption perceptions index scores"
+                                            + "\n   ordered by year, score, and country (NOTE: a higher CPI score or lower CPI rank indicates less corruption)"
+                                            + "\n\nR. Return to main menu"
+                                            + "\n"), "querySelection");
+                                    if (iManager.evaluate("querySelection", "^1.*$")) {
+                                        ResultSet stockQuery = dbManager.executeQuery("SELECT DISTINCT"
+                                                + "\n  call.country AS \"Country\","
+                                                + "\n  pi.year AS \"Year\","
+                                                + "\n  cpi.cpi_score as \"CPI Score (higher is less corrupt)\","
+                                                + "\n  cpi.rank AS \"CPI Rank (lower is less corrupt)\","
+                                                + "\n  cpi.wb_income_group AS \"World Bank Income Group\","
+                                                + "\n  pi.system AS \"Political System\","
+                                                + "\n  pi.execme AS \"Executive Branch Party\","
+                                                + "\n  pi.execrlc AS \"Executive Branch Party Orientation\""
+                                                + "\nFROM COUNTRIES call"
+                                                + "\nINNER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname"
+                                                + "\nINNER JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country and pi.year = cpi.year"
+                                                + "\nORDER BY pi.year DESC, cpi.cpi_score DESC, call.country");
+                                        /* Output Menu */
+                                        while (true) {
+                                            boolean leaveOutMenu = false;
+                                            iManager.storePrompt(("How should output be rendered?\n"
+                                                    + "\n1. CSV"
+                                                    + "\n2. JSON"
+                                                    + "\n3. Standard Output (warning: not well spaced)"
+                                                    + "\n"), "outSelection");
+                                            if (iManager.evaluate("outSelection", "^[1-3].*$")) {
+                                                switch (iManager.popInput("outSelection").charAt(0)) {
+                                                    case '1':
+                                                        iManager.storePrompt(("What should the file name be (without extension)?"
+                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                            qRSM.renderCSV(stockQuery, iManager.popInput("outFileName"));
+                                                            leaveOutMenu = true;
+                                                        } else {
+                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                        }
+                                                        break;
+                                                    case '2':
+                                                        iManager.storePrompt(("What should the file name be (without extension)?"
+                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                            qRSM.renderJSON(stockQuery, iManager.popInput("outFileName"));
+                                                            leaveOutMenu = true;
+                                                        } else {
+                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                        }
+                                                        break;
+                                                    case '3':
+                                                        qRSM.renderSOUT(stockQuery);
+                                                        leaveOutMenu = true;
+                                                        break;
+                                                }
+                                                iManager.waitForInput();
+                                            } else {
+                                                System.out.println("Sorry, invalid selection; try again.\n");
+                                            }
+                                            if (leaveOutMenu) {
+                                                break;
+                                            }
+                                        }
+                                    } else if (iManager.evaluate("querySelection", "^[rR].*$")) {
+                                        break;
+                                    } else {
+                                        System.out.println("Sorry, invalid selection; try again.\n");
+                                    }
+                                }
                                 break;
                             case '4':
+                                while (true) {
+                                    iManager.storePrompt("\nEnter your custom query below and press the Enter key when complete;", "customQuery");
+                                    ResultSet cQuery;
+                                    try {
+                                        cQuery = dbManager.executeQuery(iManager.popInput("customQuery"));
+                                    } catch (SQLException e) {
+                                        iManager.storePrompt("Incorrectly written query; try again? (y/N)", "tryAgain");
+                                        if (iManager.popEvaluate("tryAgain", iManager.yRegex)) {
+                                            continue;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    /* Output menu */
+                                    while (true) {
+                                        boolean leaveOutMenu = false;
+                                        iManager.storePrompt(("How should output be rendered?\n"
+                                                + "\n1. CSV"
+                                                + "\n2. JSON"
+                                                + "\n3. Standard Output (warning: not well spaced)"
+                                                + "\n"), "outSelection");
+                                        if (iManager.evaluate("outSelection", "^[1-3].*$")) {
+                                            switch (iManager.popInput("outSelection").charAt(0)) {
+                                                case '1':
+                                                    iManager.storePrompt(("What should the file name be (without extension)?"
+                                                            + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                    if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                        qRSM.renderCSV(cQuery, iManager.popInput("outFileName"));
+                                                        leaveOutMenu = true;
+                                                    } else {
+                                                        System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                    }
+                                                    break;
+                                                case '2':
+                                                    iManager.storePrompt(("What should the file name be (without extension)?"
+                                                            + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                    if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                        qRSM.renderJSON(cQuery, iManager.popInput("outFileName"));
+                                                        leaveOutMenu = true;
+                                                    } else {
+                                                        System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                    }
+                                                    break;
+                                                case '3':
+                                                    qRSM.renderSOUT(cQuery);
+                                                    leaveOutMenu = true;
+                                                    break;
+                                            }
+                                            iManager.waitForInput();
+                                        } else {
+                                            System.out.println("Sorry, invalid selection; try again.\n");
+                                        }
+                                        if (leaveOutMenu) { break; }
+                                    }
+                                    break;
+                                }
                                 break;
                         }
                     } else if (iManager.evaluate("mainSelection", "^[eE].*$")) {

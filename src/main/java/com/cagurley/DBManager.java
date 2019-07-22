@@ -176,39 +176,29 @@ public class DBManager {
             }
     }
 
-    public void executeQuery(String queryString, String renderMode, String fileName) throws SQLException, IOException {
-        QueryRSManager qRSM = new QueryRSManager();
+    protected void initDerivedTable(String tableName, Iterable<String> columnNames, Iterable<String> insertQueries) throws SQLException {
+        System.out.println("Creating derived table...");
         Statement stmt = this.dbConn.createStatement();
-        switch (renderMode) {
-            case "CSV":
-                qRSM.renderCSV(stmt.executeQuery(queryString), fileName);
-                break;
-            case "JSON":
-                break;
-            case "SOUT":
-                qRSM.renderSOUT(stmt.executeQuery(queryString));
-                break;
+        stmt.executeUpdate("DROP TABLE IF EXISTS " + tableName + ";");
+        dbConn.commit();
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + tableName
+                + " (["
+                + String.join("] TEXT, [", columnNames)
+                + "] TEXT);");
+        dbConn.commit();
+        for (String q : insertQueries) {
+            stmt.executeUpdate("INSERT INTO " + tableName + "\n" + q);
+            dbConn.commit();
         }
-        stmt.close();
+        System.out.println("Created derived table " + tableName + " successfully.");
     }
 
-//    public void updateColumnType(String tableName, String columnName, String newType) throws SQLException {
-//        if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
-//            throw new IllegalArgumentException("Enter valid table and column names (word characters only).");
-//        } else if (!this.getColumns(tableName, columnName).next()) {
-//            throw new IllegalArgumentException("Table or column name does not exist.");
-//        } else if (!newType.matches("^(INT)|(REAL)|(TEXT)$")){
-//            throw new IllegalArgumentException("New type must be 'INT', 'REAL', or 'TEXT'.");
-//        } else {
-//            this.createStatement();
-//            ResultSet currentValues = this.executeQuery("SELECT DISTINCT " + columnName + "\nFROM " + tableName);
-//            while (currentValues.next()) {
-//                if (newType.equals("INT")) {
-//                    this.updateColumnValue();
-//                }
-//            }
-//        }
-//    }
+    public ResultSet executeQuery(String queryString) throws SQLException {
+        QueryRSManager qRSM = new QueryRSManager();
+        Statement stmt = this.dbConn.createStatement();
+        ResultSet queryResults = stmt.executeQuery(queryString);
+        return queryResults;
+    }
 
     public void updateColumnValue(String tableName, String columnName, String searchPattern, String replacementPattern) throws SQLException {
         if (!tableName.matches("^\\w+$") || !columnName.matches("^\\w+$")) {
