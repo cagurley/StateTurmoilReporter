@@ -1,7 +1,9 @@
 package com.cagurley;
 
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 
 public class App 
 {
@@ -128,7 +130,7 @@ public class App
 
                     System.out.println("Database initiated.");
                 }
-                /* Menu */
+                /* Main Menu */
                 System.out.println("\nBooting to menu in three seconds.");
                 Thread.sleep(3000);
                 clearScreen();
@@ -167,9 +169,35 @@ public class App
                                 break;
                             case '2':
                                 clearScreen();
-                                qRSM.renderSOUT(dbManager.getColumns("%", "%"));
-                                dbManager.refreshConnection();
-                                iManager.waitForInput();
+                                /* Sub Menu */
+                                while (true) {
+                                    ResultSet gt = dbManager.getTables("%");
+                                    ArrayList<String> tableNames = new ArrayList<>();
+                                    while (gt.next()) {
+                                        if (gt.getString("TABLE_TYPE").equals("TABLE")) {
+                                            tableNames.add(gt.getString("TABLE_NAME"));
+                                        }
+                                    }
+                                    String tablePrompt = "VIEW AVAILABLE TABLE COLUMNS\n"
+                                            + "\nPress the key corresponding to a table below to see its columns.\n";
+                                    for (int i = 0; i < tableNames.size(); i++) {
+                                        tablePrompt += "\n" + (i + 1) + ". " + tableNames.get(i);
+                                    }
+                                    tablePrompt += "\n\nR. Return to main menu";
+                                    iManager.storePrompt(tablePrompt, "tableSelection");
+                                    String tSel = iManager.getInput("tableSelection").replaceFirst("^(\\d+).*$", "$1");
+                                    if (iManager.evaluate("tableSelection", "^\\d+.*$")
+                                            && Integer.parseInt(tSel) >= 1 && Integer.parseInt(tSel) < tableNames.size() + 1) {
+                                        qRSM.renderSOUT(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"));
+                                        dbManager.refreshConnection();
+                                        iManager.waitForInput();
+                                    } else if (iManager.evaluate("tableSelection", "^[rR].*$")) {
+                                        clearScreen();
+                                        break;
+                                    } else {
+                                        System.out.println("Sorry, invalid selection; try again.\n");
+                                    }
+                                }
                                 break;
                             case '3':
                                 clearScreen();
