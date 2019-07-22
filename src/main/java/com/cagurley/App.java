@@ -36,6 +36,11 @@ public class App
                     dataSet.parse();
                     dbManager.initDSTable(dataSet);
                     dataSet.closeParser();
+                    // Initializing third table
+                    dataSet = new DataSet("cpi_coerced.csv", "CORRUPTION_PERCEPTIONS_INDEX");
+                    dataSet.parse();
+                    dbManager.initDSTable(dataSet);
+                    dataSet.closeParser();
 
                     // Updating column values to enable proper query joins
                     dbManager.updateColumnValue("POLITICAL_INSTITUTIONS", "countryname",
@@ -88,27 +93,59 @@ public class App
                             "USA", "United States");
                     dbManager.updateColumnValue("POLITICAL_INSTITUTIONS", "countryname",
                             "FRG/Germany", "West Germany (FRG)");
+                    dbManager.updateColumnValue("POLITICAL_INSTITUTIONS", "countryname",
+                            "C. Verde Is.", "Cape Verde");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Bosnia and Herzegovina", "Bosnia-Herzegovina");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Brunei Darussalam", "Brunei");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Cabo Verde", "Cape Verde");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Timor-Leste", "East Timor");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Guinea Bissau", "Guinea-Bissau");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Cote d'Ivoire", "Ivory Coast");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Korea, North", "North Korea");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Congo", "Republic of the Congo");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Slovakia", "Slovak Republic");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Korea, South", "South Korea");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Saint Lucia", "St. Lucia");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "United States of America", "United States");
+                    dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
+                            "Saint Vincent and the Grenadines", "St. Vincent and the Grenadines");
                     // Creating indices on joinable columns
                     dbManager.createIndex("GLOBAL_TERRORISM", "country_txt");
                     dbManager.createIndex("POLITICAL_INSTITUTIONS", "countryname");
+                    dbManager.createIndex("CORRUPTION_PERCEPTIONS_INDEX", "country");
 
                     System.out.println("Database initiated.");
-                    dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
-                            + "\nFROM ("
-                            + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
-                            + "\n  FROM GLOBAL_TERRORISM"
-                            + "\n  UNION ALL"
-                            + "\n  SELECT DISTINCT 'PI', countryname"
-                            + "\n  FROM POLITICAL_INSTITUTIONS"
-                            + "\n)"
-                            + "\nGROUP BY value"
-                            + "\nHAVING COUNT(*) = 1"
-                            + "\nORDER BY 1, 2"), "CSV", "country_values");
                 }
                 /* Menu */
                 System.out.println("\nBooting to menu in three seconds.");
                 Thread.sleep(3000);
                 clearScreen();
+                dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
+                        + "\nFROM ("
+                        + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
+                        + "\n  FROM GLOBAL_TERRORISM"
+                        + "\n  UNION ALL"
+                        + "\n  SELECT DISTINCT 'PI', countryname"
+                        + "\n  FROM POLITICAL_INSTITUTIONS"
+                        + "\n  UNION ALL"
+                        + "\n  SELECT DISTINCT 'CPI', country"
+                        + "\n  FROM CORRUPTION_PERCEPTIONS_INDEX"
+                        + "\n)"
+                        + "\nGROUP BY value"
+                        + "\nHAVING COUNT(value) < 3"
+                        + "\nORDER BY 1, 2"), "CSV", "country_values");
                 System.out.println("Welcome to the State Turmoil Reporter,"
                         + " a queryable database of aggregate terrorism and political institution data.\n");
                 while (true) {
