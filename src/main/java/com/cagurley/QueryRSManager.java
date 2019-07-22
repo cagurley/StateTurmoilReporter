@@ -2,6 +2,8 @@ package com.cagurley;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.json.simple.*;
+import org.json.simple.parser.JSONParser;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -44,7 +46,27 @@ public class QueryRSManager {
         System.out.println("Results rendered to " + outFile.toString() + ".");
     }
 
-    public void renderJSON(ResultSet queryRS, String fileName) {}
+    public void renderJSON(ResultSet queryRS, String fileName) throws SQLException, IOException {
+        System.out.println("Rendering results to JSON...");
+        File outDir = new File(this.outDir);
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+        }
+        File outFile = new File(outDir.toString() + File.separator + fileName + ".json");
+        FileWriter truncator = new FileWriter(outFile);
+        truncator.close();
+        FileWriter appender = new FileWriter(outFile, true);
+        ArrayList<String> keys = this.getHeaderData(queryRS);
+        while (queryRS.next()) {
+            JSONObject rowObj = new JSONObject();
+            for (int i = 1; i <= queryRS.getMetaData().getColumnCount(); i++) {
+                rowObj.put(keys.get(i - 1), queryRS.getString(i));
+            }
+            appender.write(rowObj.toJSONString());
+        }
+        appender.close();
+        System.out.println("Results rendered to " + outFile.toString() + ".");
+    }
 
     public void renderSOUT(ResultSet queryRS) throws SQLException {
         System.out.println("====================");

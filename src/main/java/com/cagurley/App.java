@@ -163,9 +163,50 @@ public class App
                         switch (iManager.popInput("mainSelection").charAt(0)) {
                             case '1':
                                 clearScreen();
-                                qRSM.renderSOUT(dbManager.getTables("%"));
-                                dbManager.refreshConnection();
-                                iManager.waitForInput();
+                                /* Output Menu */
+                                while (true) {
+                                    boolean leaveOutMenu = false;
+                                    iManager.storePrompt(("How should output be rendered?\n"
+                                            + "\n1. CSV"
+                                            + "\n2. JSON"
+                                            + "\n3. Standard Output (warning: not well spaced)"
+                                            + "\n"), "outSelection");
+                                    if (iManager.evaluate("outSelection", "^[1-3].*$")) {
+                                        switch (iManager.popInput("outSelection").charAt(0)) {
+                                            case '1':
+                                                iManager.storePrompt(("What should the file name be (without extension)?"
+                                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                    qRSM.renderCSV(dbManager.getTables("%"), iManager.popInput("outFileName"));
+                                                    dbManager.refreshConnection();
+                                                    leaveOutMenu = true;
+                                                } else {
+                                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                }
+                                                break;
+                                            case '2':
+                                                iManager.storePrompt(("What should the file name be (without extension)?"
+                                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                    qRSM.renderJSON(dbManager.getTables("%"), iManager.popInput("outFileName"));
+                                                    dbManager.refreshConnection();
+                                                    leaveOutMenu = true;
+                                                } else {
+                                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                }
+                                                break;
+                                            case '3':
+                                                qRSM.renderSOUT(dbManager.getTables("%"));
+                                                dbManager.refreshConnection();
+                                                leaveOutMenu = true;
+                                                break;
+                                        }
+                                        iManager.waitForInput();
+                                    } else {
+                                        System.out.println("Sorry, invalid selection; try again.\n");
+                                    }
+                                    if (leaveOutMenu) { break; }
+                                }
                                 break;
                             case '2':
                                 clearScreen();
@@ -183,15 +224,56 @@ public class App
                                     for (int i = 0; i < tableNames.size(); i++) {
                                         tablePrompt += "\n" + (i + 1) + ". " + tableNames.get(i);
                                     }
-                                    tablePrompt += "\n\nR. Return to main menu";
+                                    tablePrompt += "\n\nR. Return to main menu\n";
                                     iManager.storePrompt(tablePrompt, "tableSelection");
-                                    String tSel = iManager.getInput("tableSelection").replaceFirst("^(\\d+).*$", "$1");
-                                    if (iManager.evaluate("tableSelection", "^\\d+.*$")
+                                    String tSel = iManager.popInput("tableSelection").replaceFirst("^(\\d+|[rR]).*$", "$1");
+                                    if (tSel.matches("^\\d+$")
                                             && Integer.parseInt(tSel) >= 1 && Integer.parseInt(tSel) < tableNames.size() + 1) {
-                                        qRSM.renderSOUT(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"));
-                                        dbManager.refreshConnection();
-                                        iManager.waitForInput();
-                                    } else if (iManager.evaluate("tableSelection", "^[rR].*$")) {
+                                        /* Output Menu*/
+                                        while (true) {
+                                            boolean leaveOutMenu = false;
+                                            iManager.storePrompt(("How should output be rendered?\n"
+                                                    + "\n1. CSV"
+                                                    + "\n2. JSON"
+                                                    + "\n3. Standard Output (warning: not well spaced)"
+                                                    + "\n"), "outSelection");
+                                            if (iManager.evaluate("outSelection", "^[1-3].*$")) {
+                                                switch (iManager.popInput("outSelection").charAt(0)) {
+                                                    case '1':
+                                                        iManager.storePrompt(("What should the file name be (without extension)?"
+                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                            qRSM.renderCSV(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"), iManager.popInput("outFileName"));
+                                                            dbManager.refreshConnection();
+                                                            leaveOutMenu = true;
+                                                        } else {
+                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                        }
+                                                        break;
+                                                    case '2':
+                                                        iManager.storePrompt(("What should the file name be (without extension)?"
+                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
+                                                            qRSM.renderJSON(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"), iManager.popInput("outFileName"));
+                                                            dbManager.refreshConnection();
+                                                            leaveOutMenu = true;
+                                                        } else {
+                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                                        }
+                                                        break;
+                                                    case '3':
+                                                        qRSM.renderSOUT(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"));
+                                                        dbManager.refreshConnection();
+                                                        leaveOutMenu = true;
+                                                        break;
+                                                }
+                                                iManager.waitForInput();
+                                            } else {
+                                                System.out.println("Sorry, invalid selection; try again.\n");
+                                            }
+                                            if (leaveOutMenu) { break; }
+                                        }
+                                    } else if (tSel.matches("^[rR]$")) {
                                         clearScreen();
                                         break;
                                     } else {

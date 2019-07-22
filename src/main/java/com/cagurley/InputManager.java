@@ -47,7 +47,7 @@ public class InputManager {
 
     private void addInput(String key, String value) { inputs.put(key, value); }
 
-    public String getInput(String key) { return inputs.get(key); }
+    private String getInput(String key) { return inputs.get(key); }
 
     public String popInput(String key) { return inputs.remove(key); }
 
