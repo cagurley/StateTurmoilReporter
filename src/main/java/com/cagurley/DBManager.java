@@ -158,12 +158,30 @@ public class DBManager {
     }
 
     /* Database Methods */
-    public void executeQuery(String queryString, String renderMode) throws SQLException, IOException {
+    public void createIndex(String tableName, String columnName) throws SQLException {
+            if (this.getColumns(tableName, columnName).next()) {
+                this.refreshConnection();
+                System.out.println("Creating index...");
+                String indexName = tableName + "_" + columnName;
+                String indexString = ("CREATE INDEX IF NOT EXISTS " + indexName
+                        + " ON " + tableName
+                        + " (" + columnName + ")");
+                Statement stmt = this.dbConn.createStatement();
+                stmt.executeUpdate(indexString);
+                this.dbConn.commit();
+                System.out.println("Created index " + indexName + " successfully.");
+            } else {
+                this.refreshConnection();
+                throw new IllegalArgumentException("Invalid table or column specified.");
+            }
+    }
+
+    public void executeQuery(String queryString, String renderMode, String fileName) throws SQLException, IOException {
         QueryRSManager qRSM = new QueryRSManager();
         Statement stmt = this.dbConn.createStatement();
         switch (renderMode) {
             case "CSV":
-                qRSM.renderCSV(stmt.executeQuery(queryString), "out");
+                qRSM.renderCSV(stmt.executeQuery(queryString), fileName);
                 break;
             case "JSON":
                 break;
