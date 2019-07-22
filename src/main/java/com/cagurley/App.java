@@ -1,7 +1,6 @@
 package com.cagurley;
 
 import java.io.IOException;
-import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -143,23 +142,27 @@ public class App
                 System.out.println("\nBooting to menu in three seconds.");
                 Thread.sleep(3000);
                 clearScreen();
-                QueryRSManager diag = new QueryRSManager();
-                diag.renderCSV(dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
-                        + "\nFROM ("
-                        + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
-                        + "\n  FROM GLOBAL_TERRORISM"
-                        + "\n  UNION ALL"
-                        + "\n  SELECT DISTINCT 'PI', countryname"
-                        + "\n  FROM POLITICAL_INSTITUTIONS"
-                        + "\n  UNION ALL"
-                        + "\n  SELECT DISTINCT 'CPI', country"
-                        + "\n  FROM CORRUPTION_PERCEPTIONS_INDEX"
-                        + "\n)"
-                        + "\nGROUP BY value"
-                        + "\nHAVING COUNT(value) < 3"
-                        + "\nORDER BY 1, 2")), "country_values");
+//                QueryRSManager diag = new QueryRSManager();
+//                diag.renderCSV(dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
+//                        + "\nFROM ("
+//                        + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
+//                        + "\n  FROM GLOBAL_TERRORISM"
+//                        + "\n  UNION ALL"
+//                        + "\n  SELECT DISTINCT 'PI', countryname"
+//                        + "\n  FROM POLITICAL_INSTITUTIONS"
+//                        + "\n  UNION ALL"
+//                        + "\n  SELECT DISTINCT 'CPI', country"
+//                        + "\n  FROM CORRUPTION_PERCEPTIONS_INDEX"
+//                        + "\n)"
+//                        + "\nGROUP BY value"
+//                        + "\nHAVING COUNT(value) < 3"
+//                        + "\nORDER BY 1, 2")), "country_values");
                 System.out.println("Welcome to the State Turmoil Reporter,"
-                        + " a queryable database of aggregate terrorism and political institution data.\n");
+                        + " a queryable database of aggregate terrorism, political institution, and corruption perceptions data."
+                        + "\nPlease see `sources.md` for links to the contributing organizations and their provided source data,\n"
+                        + "\n- University of Maryland: Global Terrorism Database"
+                        + "\n- The World Bank: Database of Political Institutions"
+                        + "\n- Transparency International: Corruption Perceptions Index data");
                 while (true) {
                     iManager.storePrompt(("What would you like to do? Press the key corresponding to a selection below.\n"
                             + "\n1. View available tables and indices"
@@ -174,49 +177,8 @@ public class App
                             case '1':
                                 clearScreen();
                                 /* Output Menu */
-                                while (true) {
-                                    boolean leaveOutMenu = false;
-                                    iManager.storePrompt(("How should output be rendered?\n"
-                                            + "\n1. CSV"
-                                            + "\n2. JSON"
-                                            + "\n3. Standard Output (warning: not well spaced)"
-                                            + "\n"), "outSelection");
-                                    if (iManager.evaluate("outSelection", "^[1-3].*$")) {
-                                        switch (iManager.popInput("outSelection").charAt(0)) {
-                                            case '1':
-                                                iManager.storePrompt(("What should the file name be (without extension)?"
-                                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                    qRSM.renderCSV(dbManager.getTables("%"), iManager.popInput("outFileName"));
-                                                    dbManager.refreshConnection();
-                                                    leaveOutMenu = true;
-                                                } else {
-                                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                }
-                                                break;
-                                            case '2':
-                                                iManager.storePrompt(("What should the file name be (without extension)?"
-                                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                    qRSM.renderJSON(dbManager.getTables("%"), iManager.popInput("outFileName"));
-                                                    dbManager.refreshConnection();
-                                                    leaveOutMenu = true;
-                                                } else {
-                                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                }
-                                                break;
-                                            case '3':
-                                                qRSM.renderSOUT(dbManager.getTables("%"));
-                                                dbManager.refreshConnection();
-                                                leaveOutMenu = true;
-                                                break;
-                                        }
-                                        iManager.waitForInput();
-                                    } else {
-                                        System.out.println("Sorry, invalid selection; try again.\n");
-                                    }
-                                    if (leaveOutMenu) { break; }
-                                }
+                                renderOutputMenu(iManager, qRSM, dbManager.getTables("%"));
+                                dbManager.refreshConnection();
                                 break;
                             case '2':
                                 clearScreen();
@@ -239,50 +201,8 @@ public class App
                                     String tSel = iManager.popInput("tableSelection").replaceFirst("^(\\d+|[rR]).*$", "$1");
                                     if (tSel.matches("^\\d+$")
                                             && Integer.parseInt(tSel) >= 1 && Integer.parseInt(tSel) < tableNames.size() + 1) {
-                                        /* Output Menu*/
-                                        while (true) {
-                                            boolean leaveOutMenu = false;
-                                            iManager.storePrompt(("How should output be rendered?\n"
-                                                    + "\n1. CSV"
-                                                    + "\n2. JSON"
-                                                    + "\n3. Standard Output (warning: not well spaced)"
-                                                    + "\n"), "outSelection");
-                                            if (iManager.evaluate("outSelection", "^[1-3].*$")) {
-                                                switch (iManager.popInput("outSelection").charAt(0)) {
-                                                    case '1':
-                                                        iManager.storePrompt(("What should the file name be (without extension)?"
-                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                            qRSM.renderCSV(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"), iManager.popInput("outFileName"));
-                                                            dbManager.refreshConnection();
-                                                            leaveOutMenu = true;
-                                                        } else {
-                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                        }
-                                                        break;
-                                                    case '2':
-                                                        iManager.storePrompt(("What should the file name be (without extension)?"
-                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                            qRSM.renderJSON(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"), iManager.popInput("outFileName"));
-                                                            dbManager.refreshConnection();
-                                                            leaveOutMenu = true;
-                                                        } else {
-                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                        }
-                                                        break;
-                                                    case '3':
-                                                        qRSM.renderSOUT(dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"));
-                                                        dbManager.refreshConnection();
-                                                        leaveOutMenu = true;
-                                                        break;
-                                                }
-                                                iManager.waitForInput();
-                                            } else {
-                                                System.out.println("Sorry, invalid selection; try again.\n");
-                                            }
-                                            if (leaveOutMenu) { break; }
-                                        }
+                                        renderOutputMenu(iManager, qRSM, dbManager.getColumns(tableNames.get(Integer.parseInt(tSel) - 1), "%"));
+                                        dbManager.refreshConnection();
                                     } else if (tSel.matches("^[rR]$")) {
                                         clearScreen();
                                         break;
@@ -314,49 +234,7 @@ public class App
                                                 + "\nINNER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname"
                                                 + "\nINNER JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country and pi.year = cpi.year"
                                                 + "\nORDER BY pi.year DESC, cpi.cpi_score DESC, call.country");
-                                        /* Output Menu */
-                                        while (true) {
-                                            boolean leaveOutMenu = false;
-                                            iManager.storePrompt(("How should output be rendered?\n"
-                                                    + "\n1. CSV"
-                                                    + "\n2. JSON"
-                                                    + "\n3. Standard Output (warning: not well spaced)"
-                                                    + "\n"), "outSelection");
-                                            if (iManager.evaluate("outSelection", "^[1-3].*$")) {
-                                                switch (iManager.popInput("outSelection").charAt(0)) {
-                                                    case '1':
-                                                        iManager.storePrompt(("What should the file name be (without extension)?"
-                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                            qRSM.renderCSV(stockQuery, iManager.popInput("outFileName"));
-                                                            leaveOutMenu = true;
-                                                        } else {
-                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                        }
-                                                        break;
-                                                    case '2':
-                                                        iManager.storePrompt(("What should the file name be (without extension)?"
-                                                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                        if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                            qRSM.renderJSON(stockQuery, iManager.popInput("outFileName"));
-                                                            leaveOutMenu = true;
-                                                        } else {
-                                                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                        }
-                                                        break;
-                                                    case '3':
-                                                        qRSM.renderSOUT(stockQuery);
-                                                        leaveOutMenu = true;
-                                                        break;
-                                                }
-                                                iManager.waitForInput();
-                                            } else {
-                                                System.out.println("Sorry, invalid selection; try again.\n");
-                                            }
-                                            if (leaveOutMenu) {
-                                                break;
-                                            }
-                                        }
+                                        renderOutputMenu(iManager, qRSM, stockQuery);
                                     } else if (iManager.evaluate("querySelection", "^[rR].*$")) {
                                         break;
                                     } else {
@@ -378,47 +256,7 @@ public class App
                                             break;
                                         }
                                     }
-                                    /* Output menu */
-                                    while (true) {
-                                        boolean leaveOutMenu = false;
-                                        iManager.storePrompt(("How should output be rendered?\n"
-                                                + "\n1. CSV"
-                                                + "\n2. JSON"
-                                                + "\n3. Standard Output (warning: not well spaced)"
-                                                + "\n"), "outSelection");
-                                        if (iManager.evaluate("outSelection", "^[1-3].*$")) {
-                                            switch (iManager.popInput("outSelection").charAt(0)) {
-                                                case '1':
-                                                    iManager.storePrompt(("What should the file name be (without extension)?"
-                                                            + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                    if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                        qRSM.renderCSV(cQuery, iManager.popInput("outFileName"));
-                                                        leaveOutMenu = true;
-                                                    } else {
-                                                        System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                    }
-                                                    break;
-                                                case '2':
-                                                    iManager.storePrompt(("What should the file name be (without extension)?"
-                                                            + " NOTE: Only word characters allowed.\n"), "outFileName");
-                                                    if (iManager.evaluate("outFileName", "^\\w+$")) {
-                                                        qRSM.renderJSON(cQuery, iManager.popInput("outFileName"));
-                                                        leaveOutMenu = true;
-                                                    } else {
-                                                        System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
-                                                    }
-                                                    break;
-                                                case '3':
-                                                    qRSM.renderSOUT(cQuery);
-                                                    leaveOutMenu = true;
-                                                    break;
-                                            }
-                                            iManager.waitForInput();
-                                        } else {
-                                            System.out.println("Sorry, invalid selection; try again.\n");
-                                        }
-                                        if (leaveOutMenu) { break; }
-                                    }
+                                    renderOutputMenu(iManager, qRSM, cQuery);
                                     break;
                                 }
                                 break;
@@ -450,6 +288,52 @@ public class App
             new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
         } else {
             Runtime.getRuntime().exec("clear");
+        }
+    }
+
+    // Used to display and control selection of output method for generated ResultSets
+    private static void renderOutputMenu(InputManager iM, QueryRSManager qRSM, ResultSet rs) throws SQLException, IOException {
+        while (true) {
+            boolean leaveOutMenu = false;
+            iM.storePrompt(("How should output be rendered?\n"
+                    + "\n1. CSV"
+                    + "\n2. JSON"
+                    + "\n3. Standard Output (warning: not well spaced)"
+                    + "\n"), "outSelection");
+            if (iM.evaluate("outSelection", "^[1-3].*$")) {
+                switch (iM.popInput("outSelection").charAt(0)) {
+                    case '1':
+                        iM.storePrompt(("What should the file name be (without extension)?"
+                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                        if (iM.evaluate("outFileName", "^\\w+$")) {
+                            qRSM.renderCSV(rs, iM.popInput("outFileName"));
+                            leaveOutMenu = true;
+                        } else {
+                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                        }
+                        break;
+                    case '2':
+                        iM.storePrompt(("What should the file name be (without extension)?"
+                                + " NOTE: Only word characters allowed.\n"), "outFileName");
+                        if (iM.evaluate("outFileName", "^\\w+$")) {
+                            qRSM.renderJSON(rs, iM.popInput("outFileName"));
+                            leaveOutMenu = true;
+                        } else {
+                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                        }
+                        break;
+                    case '3':
+                        qRSM.renderSOUT(rs);
+                        leaveOutMenu = true;
+                        break;
+                }
+                iM.waitForInput();
+            } else {
+                System.out.println("Sorry, invalid selection; try again.\n");
+            }
+            if (leaveOutMenu) {
+                break;
+            }
         }
     }
 }
