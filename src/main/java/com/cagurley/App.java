@@ -125,46 +125,40 @@ public class App
                     dbManager.updateColumnValue("CORRUPTION_PERCEPTIONS_INDEX", "country",
                             "Saint Vincent and the Grenadines", "St. Vincent and the Grenadines");
                     // Creating indices on joinable columns
+                    dbManager.createIndex("GLOBAL_TERRORISM", "eventid");
                     dbManager.createIndex("GLOBAL_TERRORISM", "country_txt");
+                    dbManager.createIndex("GLOBAL_TERRORISM", "iyear");
                     dbManager.createIndex("POLITICAL_INSTITUTIONS", "countryname");
+                    dbManager.createIndex("POLITICAL_INSTITUTIONS", "year");
                     dbManager.createIndex("CORRUPTION_PERCEPTIONS_INDEX", "country");
-                    // Creating derived table and index
-                    ArrayList<String> dCols = new ArrayList<>(Arrays.asList("country"));
-                    ArrayList<String> dQueries = new ArrayList<>(Arrays.asList("SELECT DISTINCT country_txt FROM GLOBAL_TERRORISM",
+                    dbManager.createIndex("CORRUPTION_PERCEPTIONS_INDEX", "year");
+                    // Creating derived tables and indices
+                    ArrayList<String> dCols1 = new ArrayList<>(Arrays.asList("country"));
+                    ArrayList<String> dQueries1 = new ArrayList<>(Arrays.asList("SELECT DISTINCT country_txt FROM GLOBAL_TERRORISM",
                             "SELECT DISTINCT countryname FROM POLITICAL_INSTITUTIONS WHERE countryname NOT IN (SELECT country FROM COUNTRIES)",
                             "SELECT DISTINCT country FROM CORRUPTION_PERCEPTIONS_INDEX WHERE country NOT IN (SELECT country FROM COUNTRIES)"));
-                    dbManager.initDerivedTable("COUNTRIES", dCols, dQueries);
+                    dbManager.initDerivedTable("COUNTRIES", dCols1, dQueries1);
                     dbManager.createIndex("COUNTRIES", "country");
+                    ArrayList<String> dCols2 = new ArrayList<>(Arrays.asList("year"));
+                    ArrayList<String> dQueries2 = new ArrayList<>(Arrays.asList("SELECT DISTINCT iyear FROM GLOBAL_TERRORISM",
+                            "SELECT DISTINCT year FROM POLITICAL_INSTITUTIONS WHERE year NOT IN (SELECT year FROM YEARS)",
+                            "SELECT DISTINCT year FROM CORRUPTION_PERCEPTIONS_INDEX WHERE year NOT IN (SELECT year FROM YEARS)"));
+                    dbManager.initDerivedTable("YEARS", dCols2, dQueries2);
+                    dbManager.createIndex("YEARS", "year");
 
                     System.out.println("Database initiated.");
                 }
                 /* Main Menu */
-                System.out.println("\nBooting to menu in three seconds.");
-                Thread.sleep(3000);
+                iManager.waitForInput();
                 clearScreen();
-//                QueryRSManager diag = new QueryRSManager();
-//                diag.renderCSV(dbManager.executeQuery(("SELECT \"table\" as \"Table\", value as \"Country Value\""
-//                        + "\nFROM ("
-//                        + "\n  SELECT DISTINCT 'GT' AS \"table\", country_txt AS \"value\""
-//                        + "\n  FROM GLOBAL_TERRORISM"
-//                        + "\n  UNION ALL"
-//                        + "\n  SELECT DISTINCT 'PI', countryname"
-//                        + "\n  FROM POLITICAL_INSTITUTIONS"
-//                        + "\n  UNION ALL"
-//                        + "\n  SELECT DISTINCT 'CPI', country"
-//                        + "\n  FROM CORRUPTION_PERCEPTIONS_INDEX"
-//                        + "\n)"
-//                        + "\nGROUP BY value"
-//                        + "\nHAVING COUNT(value) < 3"
-//                        + "\nORDER BY 1, 2")), "country_values");
                 System.out.println("Welcome to the State Turmoil Reporter,"
                         + " a queryable database of aggregate terrorism, political institution, and corruption perceptions data."
-                        + "\nPlease see `sources.md` for links to the contributing organizations and their provided source data,\n"
+                        + "\nPlease see `sources.md` for links to the contributing organizations and their provided source data:\n"
                         + "\n- University of Maryland: Global Terrorism Database"
                         + "\n- The World Bank: Database of Political Institutions"
                         + "\n- Transparency International: Corruption Perceptions Index data");
                 while (true) {
-                    iManager.storePrompt(("What would you like to do? Press the key corresponding to a selection below.\n"
+                    iManager.storePrompt(("\nWhat would you like to do? Press the key corresponding to a selection below.\n"
                             + "\n1. View available tables and indices"
                             + "\n2. View available table columns"
                             + "\n3. Browse predefined queries"
@@ -191,6 +185,7 @@ public class App
                                             tableNames.add(gt.getString("TABLE_NAME"));
                                         }
                                     }
+                                    dbManager.refreshConnection();
                                     String tablePrompt = "VIEW AVAILABLE TABLE COLUMNS\n"
                                             + "\nPress the key corresponding to a table below to see its columns.\n";
                                     for (int i = 0; i < tableNames.size(); i++) {
@@ -218,26 +213,98 @@ public class App
                                     iManager.storePrompt(("Which predefined query would you like to execute? Press the key corresponding to a selection below.\n"
                                             + "\n1. Countries with political institutions and corruption perceptions index scores"
                                             + "\n   ordered by year, score, and country (NOTE: a higher CPI score or lower CPI rank indicates less corruption)"
+                                            + "\n2. Countries with corruption perceptions index scores and recorded incidents of terrorism"
+                                            + "\n   ordered by year, incident count, score, and country (NOTE: a higher CPI score or lower CPI rank indicates less corruption)"
+                                            + "\n3. Countries with political institutions and recorded incidents of terrorism"
+                                            + "\n   ordered by year, incident count, executive branch party orientation, and country"
+                                            + "\n4. All countries and all years with executive branch, corruption perceptions index, and terrorist incident data if available"
+                                            + "\n   ordered by year, incident count, executive branch party orientation, score, and country"
+                                            + "\n   (NOTE: a higher CPI score or lower CPI rank indicates less corruption)"
                                             + "\n\nR. Return to main menu"
                                             + "\n"), "querySelection");
-                                    if (iManager.evaluate("querySelection", "^1.*$")) {
-                                        ResultSet stockQuery = dbManager.executeQuery("SELECT DISTINCT"
-                                                + "\n  call.country AS \"Country\","
-                                                + "\n  pi.year AS \"Year\","
-                                                + "\n  cpi.cpi_score as \"CPI Score (higher is less corrupt)\","
-                                                + "\n  cpi.rank AS \"CPI Rank (lower is less corrupt)\","
-                                                + "\n  cpi.wb_income_group AS \"World Bank Income Group\","
-                                                + "\n  pi.system AS \"Political System\","
-                                                + "\n  pi.execme AS \"Executive Branch Party\","
-                                                + "\n  pi.execrlc AS \"Executive Branch Party Orientation\""
-                                                + "\nFROM COUNTRIES call"
-                                                + "\nINNER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname"
-                                                + "\nINNER JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country and pi.year = cpi.year"
-                                                + "\nORDER BY pi.year DESC, cpi.cpi_score DESC, call.country");
-                                        renderOutputMenu(iManager, qRSM, stockQuery);
-                                    } else if (iManager.evaluate("querySelection", "^[rR].*$")) {
+                                    if (iManager.evaluate("querySelection", "^[1-4].*$")) {
+                                        ResultSet stockQuery;
+                                        switch(iManager.popInput("querySelection").charAt(0)) {
+                                            case '1':
+                                                stockQuery = dbManager.executeQuery("SELECT DISTINCT"
+                                                        + "\n  call.country AS \"Country\","
+                                                        + "\n  pi.year AS \"Year\","
+                                                        + "\n  cpi.cpi_score as \"CPI Score (higher is less corrupt)\","
+                                                        + "\n  cpi.rank AS \"CPI Rank (lower is less corrupt)\","
+                                                        + "\n  cpi.wb_income_group AS \"World Bank Income Group\","
+                                                        + "\n  pi.system AS \"Political System\","
+                                                        + "\n  pi.execme AS \"Executive Branch Party\","
+                                                        + "\n  pi.execrlc AS \"Executive Branch Party Orientation\""
+                                                        + "\nFROM COUNTRIES call"
+                                                        + "\nINNER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname"
+                                                        + "\nINNER JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country and pi.year = cpi.year"
+                                                        + "\nORDER BY pi.year DESC, cpi.cpi_score DESC, call.country;");
+                                                renderOutputMenu(iManager, qRSM, stockQuery);
+                                                break;
+                                            case '2':
+                                                stockQuery = dbManager.executeQuery("SELECT DISTINCT"
+                                                        + "\n  call.country AS \"Country\","
+                                                        + "\n  cpi.year AS \"Year\","
+                                                        + "\n  cpi.cpi_score as \"CPI Score (higher is less corrupt)\","
+                                                        + "\n  cpi.rank AS \"CPI Rank (lower is less corrupt)\","
+                                                        + "\n  cpi.wb_income_group AS \"World Bank Income Group\","
+                                                        + "\n  gta.cnt AS \"Incidents of Terrorism\""
+                                                        + "\nFROM COUNTRIES call"
+                                                        + "\nINNER JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country"
+                                                        + "\nINNER JOIN ("
+                                                        + "\n  SELECT DISTINCT country_txt, iyear, COUNT(DISTINCT eventid) as cnt"
+                                                        + "\n  FROM GLOBAL_TERRORISM"
+                                                        + "\n  GROUP BY country_txt, iyear"
+                                                        + "\n) gta on call.country = gta.country_txt and cpi.year = gta.iyear"
+                                                        + "\nORDER BY cpi.year DESC, gta.cnt DESC, cpi.cpi_score DESC, call.country");
+                                                renderOutputMenu(iManager, qRSM, stockQuery);
+                                                break;
+                                            case '3':
+                                                stockQuery = dbManager.executeQuery("SELECT DISTINCT"
+                                                        + "\n  call.country AS \"Country\","
+                                                        + "\n  pi.year AS \"Year\","
+                                                        + "\n  pi.system AS \"Political System\","
+                                                        + "\n  pi.execme AS \"Executive Branch Party\","
+                                                        + "\n  pi.execrlc AS \"Executive Branch Party Orientation\","
+                                                        + "\n  gta.cnt AS \"Incidents of Terrorism\""
+                                                        + "\nFROM COUNTRIES call"
+                                                        + "\nINNER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname"
+                                                        + "\nINNER JOIN ("
+                                                        + "\n  SELECT country_txt, iyear, COUNT(*) as cnt"
+                                                        + "\n  FROM GLOBAL_TERRORISM"
+                                                        + "\n  GROUP BY country_txt, iyear"
+                                                        + "\n) gta on call.country = gta.country_txt and pi.year = gta.iyear"
+                                                        + "\nORDER BY pi.year DESC, gta.cnt DESC, pi.execrlc, call.country");
+                                                renderOutputMenu(iManager, qRSM, stockQuery);
+                                                break;
+                                            case '4':
+                                                stockQuery = dbManager.executeQuery("SELECT DISTINCT"
+                                                        + "\n  call.country AS \"Country\","
+                                                        + "\n  yrs.year AS \"Year\","
+                                                        + "\n  pi.system AS \"Political System\","
+                                                        + "\n  pi.execme AS \"Executive Branch Party\","
+                                                        + "\n  pi.execrlc AS \"Executive Branch Party Orientation\","
+                                                        + "\n  cpi.cpi_score as \"CPI Score (higher is less corrupt)\","
+                                                        + "\n  cpi.rank AS \"CPI Rank (lower is less corrupt)\","
+                                                        + "\n  cpi.wb_income_group AS \"World Bank Income Group\","
+                                                        + "\n  gta.cnt AS \"Incidents of Terrorism\""
+                                                        + "\nFROM COUNTRIES call"
+                                                        + "\nINNER JOIN YEARS yrs on call.country is not null"
+                                                        + "\nLEFT OUTER JOIN POLITICAL_INSTITUTIONS pi on call.country = pi.countryname and yrs.year = pi.year"
+                                                        + "\nLEFT JOIN CORRUPTION_PERCEPTIONS_INDEX cpi on call.country = cpi.country and yrs.year = cpi.year"
+                                                        + "\nINNER JOIN ("
+                                                        + "\n  SELECT country_txt, iyear, COUNT(*) as cnt"
+                                                        + "\n  FROM GLOBAL_TERRORISM"
+                                                        + "\n  GROUP BY country_txt, iyear"
+                                                        + "\n) gta on call.country = gta.country_txt and yrs.year = gta.iyear"
+                                                        + "\nORDER BY yrs.year DESC, gta.cnt DESC, pi.execrlc, cpi.cpi_score, call.country");
+                                                renderOutputMenu(iManager, qRSM, stockQuery);
+                                                break;
+                                        }
+                                    } else if (iManager.popEvaluate("querySelection", "^[rR].*$")) {
                                         break;
                                     } else {
+                                        iManager.popInput("querySelection");
                                         System.out.println("Sorry, invalid selection; try again.\n");
                                     }
                                 }
@@ -261,9 +328,10 @@ public class App
                                 }
                                 break;
                         }
-                    } else if (iManager.evaluate("mainSelection", "^[eE].*$")) {
+                    } else if (iManager.popEvaluate("mainSelection", "^[eE].*$")) {
                         break;
                     } else {
+                        iManager.popInput("mainSelection");
                         System.out.println("Sorry, invalid selection; try again.\n");
                     }
                 }
@@ -303,23 +371,39 @@ public class App
             if (iM.evaluate("outSelection", "^[1-3].*$")) {
                 switch (iM.popInput("outSelection").charAt(0)) {
                     case '1':
-                        iM.storePrompt(("What should the file name be (without extension)?"
-                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                        if (iM.evaluate("outFileName", "^\\w+$")) {
-                            qRSM.renderCSV(rs, iM.popInput("outFileName"));
-                            leaveOutMenu = true;
-                        } else {
-                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                        while (true) {
+                            try {
+                                iM.storePrompt(("What should the file name be (without extension)?"
+                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                if (iM.evaluate("outFileName", "^\\w+$")) {
+                                    qRSM.renderCSV(rs, iM.popInput("outFileName"));
+                                    leaveOutMenu = true;
+                                    break;
+                                } else {
+                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                }
+                            } catch (IOException e) {
+                                System.out.println("File cannot be accessed; close file in open programs and try again.");
+                                iM.waitForInput();
+                            }
                         }
                         break;
                     case '2':
-                        iM.storePrompt(("What should the file name be (without extension)?"
-                                + " NOTE: Only word characters allowed.\n"), "outFileName");
-                        if (iM.evaluate("outFileName", "^\\w+$")) {
-                            qRSM.renderJSON(rs, iM.popInput("outFileName"));
-                            leaveOutMenu = true;
-                        } else {
-                            System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                        while (true) {
+                            try {
+                                iM.storePrompt(("What should the file name be (without extension)?"
+                                        + " NOTE: Only word characters allowed.\n"), "outFileName");
+                                if (iM.evaluate("outFileName", "^\\w+$")) {
+                                    qRSM.renderJSON(rs, iM.popInput("outFileName"));
+                                    leaveOutMenu = true;
+                                    break;
+                                } else {
+                                    System.out.println("Bad file name; must contain only letters, numbers, and other word characters.");
+                                }
+                            } catch (IOException e) {
+                                System.out.println("File cannot be accessed; close file in open programs and try again.");
+                                iM.waitForInput();
+                            }
                         }
                         break;
                     case '3':
