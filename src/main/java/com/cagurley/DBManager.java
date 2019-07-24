@@ -29,9 +29,7 @@ public class DBManager {
     }
 
     private String getResourceString() {
-        return (this.getClass().getClassLoader().getResource(".")
-                    .toString().replace("file:/", "")
-                + this.dbFileName);
+        return this.dbFileName;
     }
 
     /* Connection Methods */
